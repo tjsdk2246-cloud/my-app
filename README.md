@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 퇴원예고·병상회전율 관리 챗봇
 
-## Getting Started
+상급종합병원 전략기획팀이 퇴원예고율·퇴원예고완결률을 매달 수작업으로 집계하던 업무를 대신해주는 사내용 웹 앱입니다. 엑셀 파일 하나를 업로드하면 진료과별·의사별·시간대별·사유별 통계를 자동으로 계산하고, 전월·전년 동월과 비교해 보여줍니다.
 
-First, run the development server:
+> **비공개 저장소입니다.** 병원 내부 경영 자료를 다루므로 대외비로 분류되어 있습니다 (자세한 내용은 `PRD.md`, `CLAUDE.md` 참고).
+
+## 주요 기능
+
+- **엑셀 업로드**: 퇴원예고 엑셀 파일 1개를 올리면 기준 연월을 파일에서 자동으로 읽어 통계를 계산·저장
+- **퇴원예고 리포트**: 병원 전체 퇴원예고율·퇴원예고완결률, 진료과별 통계, 시간대별·사유별 건수, 전월·전년 대비 비교
+- **진료과별 상세**: 진료과를 선택하면 시간대별 퇴실 건수·사유별 건수를 그래프로 확인 (시간대 막대를 누르면 그 시간대의 사유별 내역도 표시)
+- **의사별 통계**: 의사별 퇴원예고율·완결률, 소속 진료과 확인, 표 정렬
+- **공용 비밀번호 로그인**: 사용자별 계정 없이 팀 공용 비밀번호 하나로 접근 제한
+
+## 기술 스택
+
+- [Next.js](https://nextjs.org) (App Router) + TypeScript + Tailwind CSS
+- [Supabase](https://supabase.com) (Postgres) — 통계 저장소
+- 배포: [Vercel](https://vercel.com)
+
+## 로컬 개발
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+실행하려면 `.env.local`에 아래 값이 필요합니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| 변수 | 설명 |
+|---|---|
+| `APP_PASSWORD` | 로그인용 공용 비밀번호 |
+| `SESSION_SECRET` | 로그인 세션 토큰 서명 키 |
+| `SUPABASE_URL` | Supabase 프로젝트 URL |
+| `SUPABASE_SECRET_KEY` | Supabase 서비스 롤 키 |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 데이터
 
-## Learn More
+- 실제 병원 엑셀 원본은 로컬 전용 `import-data/` 폴더에서만 다루며, 저장소에는 절대 커밋하지 않습니다.
+- 저장소에 포함된 `sample-data/`의 엑셀 파일은 실제 환자 정보가 아닌 가상의 샘플 데이터입니다.
+- 업로드 시 환자 등록번호 등 개인식별정보로 보이는 컬럼은 값을 읽지 않고 무시합니다.
 
-To learn more about Next.js, take a look at the following resources:
+## 문서
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [`PRD.md`](./PRD.md) — 기획서
+- [`PLAN.md`](./PLAN.md) — 개발 계획
+- [`DESIGN.md`](./DESIGN.md) — 화면·데이터 설계
+- [`CLAUDE.md`](./CLAUDE.md) — 프로젝트 작업 규칙

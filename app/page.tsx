@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import UploadPanel from "@/app/_panels/UploadPanel";
 import ReportPanel from "@/app/_panels/ReportPanel";
 import DepartmentsPanel from "@/app/_panels/DepartmentsPanel";
@@ -26,7 +27,10 @@ export default function Home() {
   return (
     <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
       <div className="flex w-full items-center justify-between border-b border-black/[.08] px-6 py-4 dark:border-white/[.145]">
-        <h1 className="text-lg font-semibold text-black dark:text-zinc-50">퇴원예고통계 관리</h1>
+        <div className="flex items-center gap-3">
+          <Image src="/logo.png" alt="한양대학교병원 로고" width={120} height={32} className="h-8 w-auto" />
+          <h1 className="text-lg font-semibold text-black dark:text-zinc-50">퇴원예고통계 관리</h1>
+        </div>
         <form action="/api/logout" method="POST">
           <button
             type="submit"

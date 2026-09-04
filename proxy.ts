@@ -42,5 +42,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // public 폴더의 이미지 등 정적 파일(로고 등)은 로그인 여부와 상관없이 항상 접근 가능해야 한다.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)"],
 };

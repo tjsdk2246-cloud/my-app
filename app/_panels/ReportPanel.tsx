@@ -2,9 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { formatPercent, formatTargetStatus, formatDiff } from "@/lib/format-percent";
+import { formatPercent, formatDiff } from "@/lib/format-percent";
 import type { PanelNavProps } from "./types";
 import { usePeriodList } from "./usePeriodList";
+import DiffCell from "./DiffCell";
 
 type DepartmentStat = {
   department: string;
@@ -59,21 +60,17 @@ type ReportResult = {
   departmentReasonStats?: unknown[];
 };
 
-// 퇴원예고율 대비 퇴원예고완결률의 격차를 "▼10%"처럼 화살표로 보여준다.
-// 완결률이 예고율보다 낮으면(일반적인 경우) ▼, 높으면 ▲. 차이가 ±5%p 이상이면 빨간 글씨로 강조한다.
-function DiffCell({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-zinc-400 dark:text-zinc-500">데이터 없음</span>;
-  if (value === 0) return <span className="text-zinc-400 dark:text-zinc-500">-</span>;
-
-  const abs = Math.abs(value);
-  const arrow = value > 0 ? "▲" : "▼";
-  const isNotable = abs >= 5;
-
+// 목표 달성 여부를 색으로도 바로 구분할 수 있게 보여준다.
+function TargetStatus({ met }: { met: boolean | null }) {
+  if (met === null) return <p className="text-xs text-zinc-400 dark:text-zinc-500">데이터 없음</p>;
   return (
-    <span className={isNotable ? "font-medium text-red-600 dark:text-red-400" : ""}>
-      {arrow}
-      {abs}%
-    </span>
+    <p
+      className={`text-xs font-medium ${
+        met ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+      }`}
+    >
+      {met ? "목표 달성" : "목표 미달성"}
+    </p>
   );
 }
 
@@ -105,6 +102,8 @@ export default function ReportPanel({ initialPeriod, onPeriodChange, onNavigate 
   }
 
   const hourlyWithData = result?.hourlyStats?.filter((stat) => stat.count > 0) ?? [];
+  const hourlyTotal = hourlyWithData.reduce((sum, stat) => sum + stat.count, 0);
+  const reasonTotal = (result?.reasonStats ?? []).reduce((sum, stat) => sum + stat.count, 0);
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-4">
@@ -178,7 +177,7 @@ export default function ReportPanel({ initialPeriod, onPeriodChange, onNavigate 
                     (목표 {result.targets.noticeRatePercent}% 이상)
                   </span>
                 </p>
-                <p className="text-xs">{formatTargetStatus(result.overall.noticeTargetMet)}</p>
+                <TargetStatus met={result.overall.noticeTargetMet} />
               </div>
               <div className="rounded-lg border border-black/[.08] p-3 dark:border-white/[.145]">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">퇴원예고완결률</p>
@@ -188,7 +187,7 @@ export default function ReportPanel({ initialPeriod, onPeriodChange, onNavigate 
                     (목표 {result.targets.completionRatePercent}% 이상)
                   </span>
                 </p>
-                <p className="text-xs">{formatTargetStatus(result.overall.completionTargetMet)}</p>
+                <TargetStatus met={result.overall.completionTargetMet} />
               </div>
             </div>
           )}
@@ -242,6 +241,10 @@ export default function ReportPanel({ initialPeriod, onPeriodChange, onNavigate 
                       </tr>
                     </thead>
                     <tbody>
+                      <tr className="border-b border-black/[.08] bg-green-50 font-bold dark:border-white/[.145] dark:bg-green-950">
+                        <td className="py-1 pr-2">합계</td>
+                        <td className="py-1 pr-2">{hourlyTotal}</td>
+                      </tr>
                       {hourlyWithData.map((stat) => (
                         <tr key={stat.hour} className="border-b border-black/[.04] dark:border-white/[.08]">
                           <td className="py-1 pr-2">{stat.hour}시</td>
@@ -268,6 +271,10 @@ export default function ReportPanel({ initialPeriod, onPeriodChange, onNavigate 
                       </tr>
                     </thead>
                     <tbody>
+                      <tr className="border-b border-black/[.08] bg-green-50 font-bold dark:border-white/[.145] dark:bg-green-950">
+                        <td className="py-1 pr-2">합계</td>
+                        <td className="py-1 pr-2">{reasonTotal}</td>
+                      </tr>
                       {result.reasonStats
                         ?.slice()
                         .sort((a, b) => b.count - a.count)
@@ -299,7 +306,7 @@ export default function ReportPanel({ initialPeriod, onPeriodChange, onNavigate 
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-black/[.04] dark:border-white/[.08]">
+                    <tr className="border-b border-black/[.04] bg-green-50 dark:border-white/[.08] dark:bg-green-950">
                       <td className="py-1 pr-2">당월 ({result.comparison.current.period})</td>
                       <td className="py-1 pr-2">{formatPercent(result.comparison.current.noticeRatePercent)}</td>
                       <td className="py-1 pr-2">

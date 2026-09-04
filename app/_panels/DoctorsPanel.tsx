@@ -5,10 +5,12 @@ import Link from "next/link";
 import { formatPercent } from "@/lib/format-percent";
 import type { PanelNavProps } from "./types";
 import { usePeriodList } from "./usePeriodList";
+import DiffCell from "./DiffCell";
 
 type DoctorStat = {
   doctorId: string;
   doctorName: string;
+  department: string;
   totalDischarges: number;
   noticeRatePercent: number | null;
   completionRatePercent: number | null;
@@ -133,6 +135,7 @@ export default function DoctorsPanel({ initialPeriod, onPeriodChange, onNavigate
               <table className="w-full border-collapse text-left text-xs">
                 <thead>
                   <tr className="border-b border-black/[.08] dark:border-white/[.145]">
+                    <th className="py-1 pr-2">진료과</th>
                     <th className="py-1 pr-2">의사</th>
                     <th
                       className="cursor-pointer select-none py-1 pr-2"
@@ -152,6 +155,7 @@ export default function DoctorsPanel({ initialPeriod, onPeriodChange, onNavigate
                     >
                       퇴원예고완결률{sortArrow("completionRatePercent")}
                     </th>
+                    <th className="py-1 pr-2">증감</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -165,19 +169,29 @@ export default function DoctorsPanel({ initialPeriod, onPeriodChange, onNavigate
                       if (bv === null) return -1;
                       return sortDir === "desc" ? bv - av : av - bv;
                     })
-                    .map((stat) => (
-                      <tr
-                        key={`${stat.doctorId}-${stat.doctorName}`}
-                        className="border-b border-black/[.04] dark:border-white/[.08]"
-                      >
-                        <td className="py-1 pr-2">
-                          {stat.doctorName} ({stat.doctorId})
-                        </td>
-                        <td className="py-1 pr-2">{stat.totalDischarges}</td>
-                        <td className="py-1 pr-2">{formatPercent(stat.noticeRatePercent)}</td>
-                        <td className="py-1 pr-2">{formatPercent(stat.completionRatePercent)}</td>
-                      </tr>
-                    ))}
+                    .map((stat) => {
+                      const gap =
+                        stat.noticeRatePercent === null || stat.completionRatePercent === null
+                          ? null
+                          : Math.round((stat.completionRatePercent - stat.noticeRatePercent) * 10) / 10;
+                      return (
+                        <tr
+                          key={`${stat.doctorId}-${stat.doctorName}`}
+                          className="border-b border-black/[.04] dark:border-white/[.08]"
+                        >
+                          <td className="py-1 pr-2">{stat.department}</td>
+                          <td className="py-1 pr-2">
+                            {stat.doctorName} ({stat.doctorId})
+                          </td>
+                          <td className="py-1 pr-2">{stat.totalDischarges}</td>
+                          <td className="py-1 pr-2">{formatPercent(stat.noticeRatePercent)}</td>
+                          <td className="py-1 pr-2">{formatPercent(stat.completionRatePercent)}</td>
+                          <td className="py-1 pr-2">
+                            <DiffCell value={gap} />
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>

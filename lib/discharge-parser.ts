@@ -145,12 +145,13 @@ function toRateStat(acc: Accumulator) {
 
 export type RateStat = ReturnType<typeof toRateStat>;
 export type DepartmentStat = RateStat & { department: string };
-export type DoctorStat = RateStat & { doctorId: string; doctorName: string };
+export type DoctorStat = RateStat & { doctorId: string; doctorName: string; department: string };
 
 export type HourlyStat = { hour: number; count: number };
 export type ReasonStat = { reason: string; count: number };
 export type DepartmentHourlyStat = { department: string; hour: number; count: number };
 export type DepartmentReasonStat = { department: string; reason: string; count: number };
+export type DepartmentHourlyReasonStat = { department: string; hour: number; reason: string; count: number };
 
 export type ParsedDischargeData = {
   totalRows: number;
@@ -165,6 +166,8 @@ export type ParsedDischargeData = {
   // 진료과별로 나눈 시간대별·사유별 통계 (진료과 상세 화면용)
   departmentHourlyStats: DepartmentHourlyStat[];
   departmentReasonStats: DepartmentReasonStat[];
+  // 진료과의 특정 시간대를 클릭했을 때 그 시간대의 사유별 내역을 보여주기 위한 통계
+  departmentHourlyReasonStats: DepartmentHourlyReasonStat[];
 };
 
 // 퇴원예고율 = 퇴원예고일시가 있는 건수 / 전체 퇴원 건수
@@ -194,11 +197,15 @@ export function parseDischargeSheet(sheet: ExcelJS.Worksheet): ParsedDischargeDa
       : null;
 
   const departmentMap = new Map<string, Accumulator>();
-  const doctorMap = new Map<string, { doctorId: string; doctorName: string; acc: Accumulator }>();
+  const doctorMap = new Map<
+    string,
+    { doctorId: string; doctorName: string; acc: Accumulator; departmentCounts: Map<string, number> }
+  >();
   const hourlyCounts = new Map<number, number>();
   const reasonCounts = new Map<string, number>();
   const departmentHourlyCounts = new Map<string, Map<number, number>>();
   const departmentReasonCounts = new Map<string, Map<string, number>>();
+  const departmentHourlyReasonCounts = new Map<string, Map<number, Map<string, number>>>();
   let totalRows = 0;
   let notYetDischargedCount = 0;
 
@@ -206,6 +213,14 @@ export function parseDischargeSheet(sheet: ExcelJS.Worksheet): ParsedDischargeDa
     const inner = map.get(department) ?? new Map<K, number>();
     inner.set(subKey, (inner.get(subKey) ?? 0) + 1);
     map.set(department, inner);
+  }
+
+  function bumpHourlyReason(department: string, hour: number, reason: string) {
+    const byHour = departmentHourlyReasonCounts.get(department) ?? new Map<number, Map<string, number>>();
+    const byReason = byHour.get(hour) ?? new Map<string, number>();
+    byReason.set(reason, (byReason.get(reason) ?? 0) + 1);
+    byHour.set(hour, byReason);
+    departmentHourlyReasonCounts.set(department, byHour);
   }
 
   sheet.eachRow((row, rowNumber) => {
@@ -262,24 +277,30 @@ export function parseDischargeSheet(sheet: ExcelJS.Worksheet): ParsedDischargeDa
       const doctorId = cellToText(row.getCell(doctorCols.id).value).trim() || NO_DATA;
       const doctorName = cellToText(row.getCell(doctorCols.name).value).trim() || NO_DATA;
       const key = `${doctorId}|${doctorName}`;
-      const entry = doctorMap.get(key) ?? { doctorId, doctorName, acc: emptyAcc() };
+      const entry =
+        doctorMap.get(key) ?? { doctorId, doctorName, acc: emptyAcc(), departmentCounts: new Map<string, number>() };
       applyTo(entry.acc);
+      // 한 의사가 여러 진료과로 찍힌 행이 있으면(드묾), 가장 많이 나온 진료과를 그 의사의 소속으로 본다.
+      entry.departmentCounts.set(department, (entry.departmentCounts.get(department) ?? 0) + 1);
       doctorMap.set(key, entry);
     }
 
-    hourlyCounts.set(actualDate.getHours(), (hourlyCounts.get(actualDate.getHours()) ?? 0) + 1);
-    bump(departmentHourlyCounts, department, actualDate.getHours());
+    const hour = actualDate.getHours();
+    hourlyCounts.set(hour, (hourlyCounts.get(hour) ?? 0) + 1);
+    bump(departmentHourlyCounts, department, hour);
+    bumpHourlyReason(department, hour, reason);
   });
 
   const departmentStats: DepartmentStat[] = Array.from(departmentMap.entries()).map(
     ([department, acc]) => ({ department, ...toRateStat(acc) }),
   );
 
-  const doctorStats: DoctorStat[] = Array.from(doctorMap.values()).map(({ doctorId, doctorName, acc }) => ({
-    doctorId,
-    doctorName,
-    ...toRateStat(acc),
-  }));
+  const doctorStats: DoctorStat[] = Array.from(doctorMap.values()).map(
+    ({ doctorId, doctorName, acc, departmentCounts }) => {
+      const department = Array.from(departmentCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? NO_DATA;
+      return { doctorId, doctorName, department, ...toRateStat(acc) };
+    },
+  );
 
   const hourlyStats: HourlyStat[] = Array.from({ length: 24 }, (_, hour) => ({
     hour,
@@ -303,6 +324,14 @@ export function parseDischargeSheet(sheet: ExcelJS.Worksheet): ParsedDischargeDa
     Array.from(reasonMap.entries()).map(([reason, count]) => ({ department, reason, count })),
   );
 
+  const departmentHourlyReasonStats: DepartmentHourlyReasonStat[] = Array.from(
+    departmentHourlyReasonCounts.entries(),
+  ).flatMap(([department, hourMap]) =>
+    Array.from(hourMap.entries()).flatMap(([hour, reasonMap]) =>
+      Array.from(reasonMap.entries()).map(([reason, count]) => ({ department, hour, reason, count })),
+    ),
+  );
+
   return {
     totalRows,
     notYetDischargedCount,
@@ -313,5 +342,6 @@ export function parseDischargeSheet(sheet: ExcelJS.Worksheet): ParsedDischargeDa
     reasonStats,
     departmentHourlyStats,
     departmentReasonStats,
+    departmentHourlyReasonStats,
   };
 }

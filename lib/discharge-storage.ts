@@ -6,6 +6,7 @@ import type {
   ReasonStat,
   DepartmentHourlyStat,
   DepartmentReasonStat,
+  DepartmentHourlyReasonStat,
   ParsedDischargeData,
 } from "@/lib/discharge-parser";
 
@@ -16,6 +17,7 @@ const TABLES = [
   "discharge_reason_stats",
   "discharge_department_hourly_stats",
   "discharge_department_reason_stats",
+  "discharge_department_hourly_reason_stats",
 ] as const;
 
 // 같은 기준 연월을 다시 업로드하면 이전 값을 지우고 새 값으로 덮어쓴다.
@@ -50,6 +52,7 @@ export async function saveDischargeStats(period: string, data: ParsedDischargeDa
         period,
         doctor_id: stat.doctorId,
         doctor_name: stat.doctorName,
+        department: stat.department,
         total_discharges: stat.totalDischarges,
         noticed_count: stat.noticedCount,
         completion_eligible_count: stat.completionEligibleCount,
@@ -99,6 +102,19 @@ export async function saveDischargeStats(period: string, data: ParsedDischargeDa
     );
     if (error) throw new Error(`진료과별 사유 통계 저장 실패: ${error.message}`);
   }
+
+  if (data.departmentHourlyReasonStats.length > 0) {
+    const { error } = await supabase.from("discharge_department_hourly_reason_stats").insert(
+      data.departmentHourlyReasonStats.map((stat) => ({
+        period,
+        department: stat.department,
+        hour: stat.hour,
+        reason: stat.reason,
+        count: stat.count,
+      })),
+    );
+    if (error) throw new Error(`진료과별 시간대·사유 통계 저장 실패: ${error.message}`);
+  }
 }
 
 export type StoredDischargeStats = {
@@ -108,13 +124,14 @@ export type StoredDischargeStats = {
   reasonStats: ReasonStat[];
   departmentHourlyStats: DepartmentHourlyStat[];
   departmentReasonStats: DepartmentReasonStat[];
+  departmentHourlyReasonStats: DepartmentHourlyReasonStat[];
 };
 
 // 기준 연월로 저장된 통계를 조회한다. 저장된 것이 없으면 null(=데이터 없음)을 돌려준다.
 export async function getDischargeStats(period: string): Promise<StoredDischargeStats | null> {
   const supabase = getSupabaseServerClient();
 
-  const [monthly, doctor, hourly, reason, deptHourly, deptReason] = await Promise.all([
+  const [monthly, doctor, hourly, reason, deptHourly, deptReason, deptHourlyReason] = await Promise.all([
     supabase.from("discharge_monthly_stats").select("*").eq("period", period).order("department"),
     supabase.from("discharge_doctor_stats").select("*").eq("period", period),
     supabase.from("discharge_hourly_stats").select("*").eq("period", period).order("hour"),
@@ -131,6 +148,13 @@ export async function getDischargeStats(period: string): Promise<StoredDischarge
       .eq("period", period)
       .order("department")
       .order("count", { ascending: false }),
+    supabase
+      .from("discharge_department_hourly_reason_stats")
+      .select("*")
+      .eq("period", period)
+      .order("department")
+      .order("hour")
+      .order("count", { ascending: false }),
   ]);
 
   if (monthly.error) throw new Error(`진료과별 통계 조회 실패: ${monthly.error.message}`);
@@ -139,6 +163,8 @@ export async function getDischargeStats(period: string): Promise<StoredDischarge
   if (reason.error) throw new Error(`사유별 통계 조회 실패: ${reason.error.message}`);
   if (deptHourly.error) throw new Error(`진료과별 시간대 통계 조회 실패: ${deptHourly.error.message}`);
   if (deptReason.error) throw new Error(`진료과별 사유 통계 조회 실패: ${deptReason.error.message}`);
+  if (deptHourlyReason.error)
+    throw new Error(`진료과별 시간대·사유 통계 조회 실패: ${deptHourlyReason.error.message}`);
 
   if (
     monthly.data.length === 0 &&
@@ -162,6 +188,7 @@ export async function getDischargeStats(period: string): Promise<StoredDischarge
     doctorStats: doctor.data.map((row) => ({
       doctorId: row.doctor_id,
       doctorName: row.doctor_name,
+      department: row.department,
       totalDischarges: row.total_discharges,
       noticedCount: row.noticed_count,
       completionEligibleCount: row.completion_eligible_count,
@@ -178,6 +205,12 @@ export async function getDischargeStats(period: string): Promise<StoredDischarge
     })),
     departmentReasonStats: deptReason.data.map((row) => ({
       department: row.department,
+      reason: row.reason,
+      count: row.count,
+    })),
+    departmentHourlyReasonStats: deptHourlyReason.data.map((row) => ({
+      department: row.department,
+      hour: row.hour,
       reason: row.reason,
       count: row.count,
     })),

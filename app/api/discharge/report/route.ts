@@ -67,5 +67,6 @@ export async function GET(request: Request) {
     reasonStats: stored.reasonStats,
     departmentHourlyStats: stored.departmentHourlyStats,
     departmentReasonStats: stored.departmentReasonStats,
+    departmentHourlyReasonStats: stored.departmentHourlyReasonStats,
   });
 }

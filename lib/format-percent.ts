@@ -4,11 +4,6 @@ export function formatPercent(value: number | null) {
   return value === null ? "데이터 없음" : `${value}%`;
 }
 
-export function formatTargetStatus(met: boolean | null) {
-  if (met === null) return "데이터 없음";
-  return met ? "목표 달성" : "목표 미달성";
-}
-
 export function formatDiff(value: number | null) {
   if (value === null) return "";
   if (value === 0) return " (전월/전년과 동일)";

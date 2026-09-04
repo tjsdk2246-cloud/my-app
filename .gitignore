@@ -36,6 +36,13 @@ yarn-error.log*
 # vercel
 .vercel
 
+# 병원 내부 대외비 원본 데이터 (로컬 일괄 가져오기용, 절대 커밋하지 않는다)
+/import-data
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI 도구 로컬 상태 (기기별 런타임 상태·감사 로그·개인 경로 설정, 커밋 대상 아님)
+/.bkit
+/.claude
